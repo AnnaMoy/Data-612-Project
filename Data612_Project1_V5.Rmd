@@ -1,0 +1,183 @@
+---
+title: "Data 613 - Project 1"
+author: "Anna Moy & Natalie Kalukeerthie"
+date: "2025-06-08"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load library
+library(reshape2)
+```
+
+# Overview
+
+Briefly describe the recommender system that you’re going to build out from a business
+perspective, e.g. “This system recommends data science books to readers.”
+
+```{r}
+# Create Dataset with 6 users and 5 restaurants
+ratings_df <- data.frame(
+  user = c(
+    rep("Alice", 5),
+    rep("Ben", 5),
+    rep("Cindy", 5),
+    rep("David", 5),
+    rep("Ella", 5),
+    rep("Frank", 5)
+  ),
+  restaurant = rep(c("Pasta_Place", "Sushi_Spot", "Burger_Barn", "Curry_Corner", "Taco_Town"), 6),
+  rating = c(
+    5, NA, 4, NA, 4,      # Alice
+    4, 3, 5, 3, 4,        # Ben
+    4, 2, NA, NA, 3,      # Cindy
+    2, 2, 3, 1, 2,        # David
+    4, NA, 5, 4, 5,       # Ella
+    4, 2, 5, 4, 4         # Frank
+  )
+)
+
+ratings_df
+```
+
+```{r}
+#Transform data frame into a user-item matrix
+
+#pivot the long format into a matrix for user, item and ratings
+matrix <- dcast(ratings_df, user ~ restaurant, value.var = "rating") 
+
+# row labels will be the based on user
+rownames(matrix) <- matrix$user
+
+# remove the first column since it is repeating duplicate value
+matrix <- matrix[, -1]
+
+#print the matrix
+print(matrix)
+
+```
+
+
+```{r}
+set.seed(42)
+# Take the data and split into training 80% and testing 20% dataframe
+train_indices <- sample(1:nrow(ratings_df), size = 0.8 * nrow(ratings_df))
+
+train_df <- ratings_df[train_indices, ]
+test_df <- ratings_df[-train_indices, ]
+
+train_df
+test_df
+```
+
+
+```{r}
+# Find the Raw average and calculate RMSE
+
+# Raw Average on Training set and ignore NA
+global_mean <- mean(train_df$rating, na.rm = TRUE)
+
+
+# Add the raw avg onto the training and test dataset
+train_df$raw_avg <- global_mean
+test_df$raw_avg <- global_mean
+
+# RMSE function
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
+}
+
+train_fil <- train_df[!is.na(train_df$rating), ]
+test_fil <- test_df[!is.na(test_df$rating), ]
+
+
+# Calculate RSME which takes the difference of ratings - avg mean for training and test set
+rmse_train_raw <- rmse(train_fil$rating, train_fil$raw_avg)
+rmse_test_raw <- rmse(test_fil$rating, test_fil$raw_avg)
+
+rmse_train_raw
+rmse_test_raw
+
+```
+
+```{r}
+#Finds out the bias values for all columns and rows in grid
+
+# Find the mean for all bia users in training data
+user_avg <- aggregate(rating ~ user, data = train_df, mean)
+# Take the user bias values and the difference from the raw mean
+user_avg$user_bias <- user_avg$rating - global_mean
+
+user_avg
+
+# Find the mean for all items in the training data
+restaurant_avg <- aggregate(rating ~ restaurant, data = train_df, mean)
+
+# Take the item values and the difference frm the raw mean
+restaurant_avg$restaurant_bias <- restaurant_avg$rating - global_mean
+
+restaurant_avg
+
+```
+
+```{r}
+#Baseline Predictor
+
+# Merge user bias into the training data set by user
+train_df <- merge(train_df, user_avg[, c("user", "user_bias")], by = "user", all.x = TRUE)
+
+#Merger item into the training data set by item
+train_df <- merge(train_df, restaurant_avg[, c("restaurant", "restaurant_bias")], by = "restaurant", all.x = TRUE)
+
+train_df
+
+#Baseline Predictor for Training data avg + user bias + item bias
+train_df$pred_baseline <- global_mean + train_df$user_bias + train_df$restaurant_bias
+
+# Repeat same steps for testing dataset
+test_df <- merge(test_df, user_avg[, c("user", "user_bias")], by = "user", all.x = TRUE)
+test_df <- merge(test_df, restaurant_avg[, c("restaurant", "restaurant_bias")], by = "restaurant", all.x = TRUE)
+
+test_df$pred_baseline <- global_mean + test_df$user_bias + test_df$restaurant_bias
+```
+
+
+```{r}
+# Baseline Predictor RMSE
+
+train_filtered <- train_df[!is.na(train_df$rating), ]
+test_filtered <- test_df[!is.na(test_df$rating), ]
+
+# Using the RMSE function taking the difference between rating and baseline predictor for training and test set
+rmse_train_base <- rmse(train_filtered$rating, train_filtered$pred_baseline)
+rmse_test_base <- rmse(test_filtered$rating, test_filtered$pred_baseline)
+
+#this is what changed the rmse training numbers, !is.na was added to $pre_baseline 
+#rmse_train_base <- rmse(train_df$rating[!is.na(train_df$rating)], train_df$pred_baseline[!is.na(train_df$rating)])
+#rmse_test_base <- rmse(test_df$rating[!is.na(test_df$rating)], test_df$pred_baseline[!is.na(test_df$rating)])
+
+rmse_train_base
+rmse_test_base
+```
+
+```{r}
+cat("Raw Average Model:\n")
+cat("  RMSE Train:", round(rmse_train_raw, 3), "\n")
+cat("  RMSE Test: ", round(rmse_test_raw, 3), "\n\n")
+
+cat("Baseline Predictor Model:\n")
+cat("  RMSE Train:", round(rmse_train_base, 3), "\n")
+cat("  RMSE Test: ", round(rmse_test_base, 3), "\n")
+
+
+result <- ((1- rmse_test_base)/rmse_test_raw) * 100
+
+cat("  RMSE Test Increased or Decreased: ", round(result, 3), "\n")
+
+```
