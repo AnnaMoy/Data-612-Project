@@ -5,8 +5,6 @@ date: "2025-06-08"
 output: html_document
 ---
 
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -18,13 +16,11 @@ library(reshape2)
 
 # Overview
 
-Briefly describe the recommender system that you’re going to build out from a business
-perspective, e.g. “This system recommends data science books to readers.”
+**Briefly describe the recommender system that you’re going to build out from a business perspective, e.g. “This system recommends data science books to readers.”**
 
 For this project, we will be building a system where Yelp users leave ratings (from 1 to 5) on restaurants they've visited. However, no user reviews every restaurant. Our recommender system will estimate missing ratings using average scores and bias adjustments — helping us to figure out which restaurants most users liked.
 
-
-We simulate reviews from 6 Yelp users (Alice, Ben, Cindy, David, Ella, Frank) for 5 restaurants (Pasta Place, Sushi Spot, Burger Barn, Curry Corner, Taco Town). Some users have not rated every restaurant.
+We simulate reviews from 6 Yelp users (Alice, Ben, Cindy, David, Ella, Frank) for 5 restaurants (Pasta Place, Sushi Spot, Burger Barn, Curry Corner, Taco Town). Keep in mind that some users have not rated every restaurant.
 
 ```{r}
 # Create Dataset with 6 users and 5 restaurants
@@ -68,7 +64,6 @@ print(matrix)
 
 ```
 
-
 ```{r}
 set.seed(42)
 # Take the data and split into training 80% and testing 20% dataframe
@@ -80,7 +75,6 @@ test_df <- ratings_df[-train_indices, ]
 train_df
 test_df
 ```
-
 
 ```{r}
 # Find the Raw average and calculate RMSE
@@ -152,7 +146,6 @@ test_df <- merge(test_df, restaurant_avg[, c("restaurant", "restaurant_bias")], 
 test_df$pred_baseline <- global_mean + test_df$user_bias + test_df$restaurant_bias
 ```
 
-
 ```{r}
 # Baseline Predictor RMSE
 
@@ -179,30 +172,30 @@ cat("  RMSE Train:", round(rmse_train_base, 3), "\n")
 cat("  RMSE Test: ", round(rmse_test_base, 3), "\n")
 
 
-result <- ((1- rmse_test_base)/rmse_test_raw) * 100
+result <- (1- (rmse_test_base/rmse_test_raw)) * 100
 
 cat("  RMSE Test Increased or Decreased: ", round(result, 3), "\n")
 
 ```
+
 The Raw Average Model uses the overall average rating to predict user ratings, resulting in:
 
-    Training RMSE: 1.134
+```         
+Training RMSE: 1.134
 
-    Testing RMSE: 1.183
+Testing RMSE: 1.183
+```
 
-The Baseline Predictor Model, which adjusts predictions by 
+The Baseline Predictor Model, which adjusts predictions by adding user and restaurant biases to the global average, resulted in:
 
-    Training RMSE: 0.549 (lower than raw average)
+```         
+Training RMSE: 0.549 (lower than raw average)
 
-    Testing RMSE: 1.087 (lower than raw average)
-    
-The testing RMSE decreased by about 8.12% with the baseline model compared to the raw average, indicating better generalization on unseen data. 
+Testing RMSE: 1.087 (lower than raw average)
+```
 
-The lower the RMSE in the baseline predictor model shows it is better than the raw average model. 
-The Sushi Spot and Curry Corner shows they have lower average ratings in the training data which indicated on average users rated these below the average. Burger Barn and Taco Town on the other hand received higher average ratings from users which indicates customer satisfaction. 
+The Baseline Predictor Model improves test RMSE by about 8.1% compared to the Raw Average Model, indicating better generalization on unseen data.
 
-The users Alice and Ella will provide higher ratings compared to others on average which are positive user biases. The negative user biases would be David and Cindy. 
+The lower RMSE of the baseline predictor confirms it outperforms the raw average model, indicating meaningful improvement. Sushi Spot and Curry Corner have negative item biases, suggesting they are consistently rated below average by users. Burger Barn and Taco Town on the other hand received higher average ratings from users which indicates customer satisfaction.
 
-
-
-
+The users Alice and Ella will provide higher ratings compared to others on average which are positive user biases. The negative user biases would be David and Cindy.
