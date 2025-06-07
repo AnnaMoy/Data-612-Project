@@ -1,0 +1,122 @@
+---
+title: "Data612 - Project 2"
+author: "Anna Moy & Natalie Kalukeerthie"
+date: "2025-06-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Load Library
+library(recommenderlab)
+library(ggplot2)
+```
+
+
+```{r}
+# Load built-in MovieLens dataset
+data(MovieLense)
+MovieLense
+```
+
+```{r}
+# Create 80% train, 20% test, Looks at 10 items by each user and ratings that are greater or equal to 4
+split_data <- evaluationScheme(MovieLense[1:500], method = "split", train = 0.8, given = 10, goodRating = 4)
+
+#User Based Collaborative Filtering
+ubcf_model1 <- Recommender(getData(split_data, "train"), method = "UBCF",
+                          parameter = list(nn = 10))
+ubcf_model2 <- Recommender(getData(split_data, "train"), method = "UBCF",
+                          parameter = list(method = "Cosine", nn = 20))
+ubcf_model3 <- Recommender(getData(split_data, "train"), method = "UBCF",
+                          parameter = list(method = "Pearson", nn = 30))
+
+#Item Based Collaborative Filtering
+ibcf_model1 <- Recommender(getData(split_data, "train"), method = "IBCF",
+                          parameter = list(k = 10))
+ibcf_model2 <- Recommender(getData(split_data, "train"), method = "IBCF",
+                          parameter = list(method = "Cosine", k = 20))
+ibcf_model3 <- Recommender(getData(split_data, "train"), method = "IBCF",
+                          parameter = list(method = "Pearson", k = 30))
+
+
+# Predictions
+predict_ubcf1 <- predict(ubcf_model1, getData(split_data, "known"), type = "ratings")
+predict_ibcf1 <- predict(ibcf_model1, getData(split_data, "known"), type = "ratings")
+predict_ubcf2 <- predict(ubcf_model2, getData(split_data, "known"), type = "ratings")
+predict_ibcf2 <- predict(ibcf_model2, getData(split_data, "known"), type = "ratings")
+predict_ubcf3 <- predict(ubcf_model3, getData(split_data, "known"), type = "ratings")
+predict_ibcf3 <- predict(ibcf_model3, getData(split_data, "known"), type = "ratings")
+
+# Evaluation
+accuracy_ubcf1 <- calcPredictionAccuracy(predict_ubcf1, getData(split_data, "unknown"))
+accuracy_ibcf1 <- calcPredictionAccuracy(predict_ibcf1, getData(split_data, "unknown"))
+accuracy_ubcf2 <- calcPredictionAccuracy(predict_ubcf2, getData(split_data, "unknown"))
+accuracy_ibcf2 <- calcPredictionAccuracy(predict_ibcf2, getData(split_data, "unknown"))
+accuracy_ubcf3 <- calcPredictionAccuracy(predict_ubcf3, getData(split_data, "unknown"))
+accuracy_ibcf3 <- calcPredictionAccuracy(predict_ibcf3, getData(split_data, "unknown"))
+
+# Compare RMSE, MSE and MAE
+# UBCF Model 1
+print("User Based Collaborative Filtering 1")
+print(accuracy_ubcf1)
+
+# IBCF Model 1
+print("Item Based Collaborative Filtering 1")
+print(accuracy_ibcf1)
+
+# UBCF Model 2
+print("User Based Collaborative Filtering 2")
+print(accuracy_ubcf2)
+
+# IBCF Model 2
+print("Item Based Collaborative Filtering 2")
+print(accuracy_ibcf2)
+
+# UBCF Model 3
+print("User Based Collaborative Filtering 3")
+print(accuracy_ubcf3)
+
+# IBCF Model 3
+print("Item Based Collaborative Filtering 3")
+print(accuracy_ibcf3)
+```
+
+```{r}
+# Combine results into a vector
+values <- c(
+  accuracy_ubcf1["RMSE"], accuracy_ibcf1["RMSE"],
+  accuracy_ubcf1["MAE"],  accuracy_ibcf1["MAE"],
+  accuracy_ubcf1["MSE"],  accuracy_ibcf1["MSE"],
+  
+  accuracy_ubcf2["RMSE"], accuracy_ibcf2["RMSE"],
+  accuracy_ubcf2["MAE"],  accuracy_ibcf2["MAE"],
+  accuracy_ubcf2["MSE"],  accuracy_ibcf2["MSE"],
+  
+  accuracy_ubcf3["RMSE"], accuracy_ibcf3["RMSE"],
+  accuracy_ubcf3["MAE"],  accuracy_ibcf3["MAE"],
+  accuracy_ubcf3["MSE"],  accuracy_ibcf3["MSE"]
+)
+
+# Build the results dataframe
+results <- data.frame(
+  Metric = rep(c("RMSE", "MAE", "MSE"), times = 6),
+  Models = rep(c("UBCF1", "IBCF1", "UBCF2", "IBCF2", "UBCF3", "IBCF3"), each = 3),
+  Value = as.numeric(values)
+)
+
+ggplot(results, aes(x = Metric, y = Value, fill = Models)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Comparing UBCF and IBCF Recommender Models",
+    y = "Prediction Error",
+    x = "Metric"
+  ) +
+  theme_minimal()
+```
+
+Based on the results it shows the best RMSE is in UBCF3 at 1.129 and the best MSE is UBCF3 at 1.27 and the best MAE is IBCF1 at .763. Overall the best model out of all of these would be UBCF3 as it has the lowest RMSE and MSE out of all the models.   
