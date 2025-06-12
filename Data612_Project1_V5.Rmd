@@ -2,17 +2,13 @@
 title: "Data 613 - Project 1"
 author: "Anna Moy & Natalie Kalukeerthie"
 date: "2025-06-08"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-# Load library
-library(reshape2)
-```
 
 # Overview
 
@@ -25,6 +21,11 @@ For this project, we are building a recommender system for Yelp-style restaurant
 -   A **Baseline Model** that adjusts predictions based on both user and restaurant (item) biases.
 
 Our core idea is that evaluating how well each model performs (using RMSE), we aim to learn how bias-aware predictions improve recommendation accuracy. We simulate reviews from 6 Yelp users (Alice, Ben, Cindy, David, Ella, Frank) for 5 restaurants (Pasta Place, Sushi Spot, Burger Barn, Curry Corner, Taco Town). Keep in mind that some users have not rated every restaurant.
+
+```{r}
+# Load library
+library(reshape2)
+```
 
 ```{r}
 # Create Dataset with 6 users and 5 restaurants
@@ -48,7 +49,6 @@ ratings_df <- data.frame(
   )
 )
 
-ratings_df
 ```
 
 We pivot the data into a matrix format (User-Item Matrix), which helps visualize missing ratings.
@@ -79,9 +79,6 @@ train_indices <- sample(1:nrow(ratings_df), size = 0.8 * nrow(ratings_df))
 
 train_df <- ratings_df[train_indices, ]
 test_df <- ratings_df[-train_indices, ]
-
-train_df
-test_df
 ```
 
 Our first model will be the raw average predictor, this model predicts the same score (the global mean) for all missing values.
@@ -254,6 +251,6 @@ Testing RMSE: 1.021 (lower than raw average)
 
 The Baseline Predictor Model improves test RMSE by about 13.7% compared to the Raw Average Model, indicating better generalization on unseen data. We incorporated regularization into our model to reduce over-fitting of the data and this process actually decreased our baseline predictor model's test and training RMSE since we shrunk extreme bias values toward the global average.
 
-The lower RMSE of the baseline predictor confirms it outperforms the raw average model, indicating meaningful improvement. Sushi Spot and Curry Corner have negative item biases, suggesting they are consistently rated below average by users. Burger Barn and Taco Town on the other hand received higher average ratings from users which indicates customer satisfaction.
+RMSE is used to measure how close our predictions are compared to teh actual ratings. The lower RMSE of the baseline predictor confirms it outperforms the raw average model, indicating meaningful improvement. Sushi Spot and Curry Corner have negative item biases, suggesting they are consistently rated below average by users. Burger Barn and Taco Town on the other hand received higher average ratings from users which indicates customer satisfaction.
 
 The users Alice and Ella will provide higher ratings compared to others on average which are positive user biases. The negative user biases would be David and Cindy.
