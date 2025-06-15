@@ -16,15 +16,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 For this project, we are building a recommender system for Yelp-style restaurant reviews. Users rate restaurants from 1 to 5, but not every user rates every restaurant (in this project our item will be 'restaurants'). Our goal is to predict missing ratings, using two simple models:
 
--   A **Raw Average Model** that predicts all ratings using the global mean.
+-   A **Raw Average Model** is using the overall average rating across all users (Yelp users) and items (Restaurants)
 
--   A **Baseline Model** that adjusts predictions based on both user and restaurant (item) biases.
+-   A **Baseline Model** that adjusts predictions based on both user and restaurant (item) biases. It uses the raw average model and then adjusts the users (Yelp users) and item (Restaurants) biases.
 
 Our core idea is that evaluating how well each model performs (using RMSE), we aim to learn how bias-aware predictions improve recommendation accuracy. We simulate reviews from 6 Yelp users (Alice, Ben, Cindy, David, Ella, Frank) for 5 restaurants (Pasta Place, Sushi Spot, Burger Barn, Curry Corner, Taco Town). Keep in mind that some users have not rated every restaurant.
 
 ```{r}
 # Load library
 library(reshape2)
+library(knitr)
+library(dplyr)
 ```
 
 ```{r}
@@ -51,7 +53,7 @@ ratings_df <- data.frame(
 
 ```
 
-We pivot the data into a matrix format (User-Item Matrix), which helps visualize missing ratings.
+We pivot the data into a matrix format (User-Item Matrix), which helps visualize missing ratings. 
 
 ```{r}
 #Transform data frame into a user-item matrix
@@ -81,14 +83,23 @@ train_df <- ratings_df[train_indices, ]
 test_df <- ratings_df[-train_indices, ]
 ```
 
-Our first model will be the raw average predictor, this model predicts the same score (the global mean) for all missing values.
+Our first model will be the raw average predictor, this model takes the average of all the known ratings in the training dataset and ignores any missing ratings. The RMSE calculates the difference between the Ratings and the raw average for the training and test data. 
+
+**RSME (Root Mean Squared Error)** - measures the average difference between the predicted values and actual values
+
+$$
+\text{RMSE} = \sqrt{ \frac{1}{n} \sum_{i=1}^{n} \left( \hat{y}_i - y_i \right)^2 }
+$$
+Where:  
+- \( \hat{y}_i \) = predicted value for the \(i\)-th observation  
+- \( y_i \) = actual value for the \(i\)-th observation  
+- \( n \) = total number of observations
 
 ```{r}
 # Find the Raw average and calculate RMSE
 
 # Raw Average on Training set and ignore NA
 global_mean <- mean(train_df$rating, na.rm = TRUE)
-
 
 # Add the raw avg onto the training and test dataset
 train_df$raw_avg <- global_mean
@@ -120,14 +131,25 @@ Our second model 2 is the **Baseline Model** assumes that each user and item (re
 
 We predict the rating as is: Predicted Rating = Global Mean + User Bias + Item Bias
 
+$$
+\hat{r}_{ui} = \mu + b_u + b_i
+$$
+
+Where:
+
+- \( \hat{r}_{ui} \): predicted rating for user \( u \) and item \( i \)  
+- \( \mu \): global average rating  
+- \( b_u \): user bias  
+- \( b_i \): item bias
+
 This is a considered a collaborative filtering approach, where bias correction leads to more personalized predictions.
 
 To prevent overfitting, we applied regularization to user and item bias estimates. This penalizes users or restaurants with very few ratings, reducing the risk of exaggerated bias values. For example, if a user has rated only one item extremely high, regularization ensures that this does not overly skew their predicted ratings across the system.
 
+Regularization is a technique that is used to prevent overfitting and to improve the model generalization. 
+
 ```{r}
 #Finds out the bias values for all columns and rows in grid
-
-library(dplyr)
 
 # Set regularization strength
 lambda <- 10
@@ -218,39 +240,71 @@ rmse_test_base
 ```
 
 ```{r}
-cat("Raw Average Model:\n")
-cat("  RMSE Train:", round(rmse_train_raw, 3), "\n")
-cat("  RMSE Test: ", round(rmse_test_raw, 3), "\n\n")
+# Prepare the data
+model_names <- c("Raw Average Model", "Baseline Predictor Model")
+rmse_train <- c(round(rmse_train_raw, 3), round(rmse_train_base, 3))
+rmse_test <- c(round(rmse_test_raw, 3), round(rmse_test_base, 3))
+rmse_test_change <- c(NA, round((1 - (rmse_test_base / rmse_test_raw)) * 100, 3))
 
-cat("Baseline Predictor Model:\n")
-cat("  RMSE Train:", round(rmse_train_base, 3), "\n")
-cat("  RMSE Test: ", round(rmse_test_base, 3), "\n")
+results_df <- data.frame(
+  Model = model_names,
+  RMSE_Train = rmse_train,
+  RMSE_Test = rmse_test,
+  RMSE_Test_Change_Percent = rmse_test_change
+)
 
-
-result <- (1- (rmse_test_base/rmse_test_raw)) * 100
-
-cat("  RMSE Test Increased or Decreased: ", round(result, 3), "\n")
+# Print the table
+kable(results_df, caption = "RMSE Comparison of Models")
 
 ```
 
-The Raw Average Model uses the overall average rating to predict user ratings, resulting in:
+```{r}
+### RAW AVERAGE MODEL PREDICTIONS
+# Fill missing values with the global average
+ratings_raw <- ratings_df %>%
+  mutate(pred_raw = ifelse(is.na(rating), global_mean, rating))
 
-```         
-Training RMSE: 1.134
+# Reshape to matrix
+ratings_matrix_raw <- dcast(ratings_raw, user ~ restaurant, value.var = "pred_raw")
 
-Testing RMSE: 1.183
+
+### BASELINE MODEL PREDICTIONS
+# Compute biases
+user_avg <- ratings_df %>%
+  group_by(user) %>%
+  summarize(u_avg = mean(rating, na.rm = TRUE))
+
+item_avg <- ratings_df %>%
+  group_by(restaurant) %>%
+  summarize(i_avg = mean(rating, na.rm = TRUE))
+
+# Merge with original data
+baseline_df <- ratings_df %>%
+  left_join(user_avg, by = "user") %>%
+  left_join(item_avg, by = "restaurant") %>%
+  mutate(pred_baseline = ifelse(
+    is.na(rating),
+    global_mean + (u_avg - global_mean) + (i_avg - global_mean),
+    rating
+  ))
+
+# Reshape to matrix
+ratings_matrix_base <- dcast(baseline_df, user ~ restaurant, value.var = "pred_baseline")
+
+#Print both Predictions
+print("Raw Average Model Prediction:")
+print(ratings_matrix_raw)
+print("Baseline Model Prediction:")
+print(ratings_matrix_base)
 ```
 
-The Baseline Predictor Model, which adjusts predictions by adding user and restaurant biases to the global average, resulted in:
-
-```         
-Training RMSE: 0.843 (lower than raw average)
-
-Testing RMSE: 1.021 (lower than raw average)
-```
 
 The Baseline Predictor Model improves test RMSE by about 13.7% compared to the Raw Average Model, indicating better generalization on unseen data. We incorporated regularization into our model to reduce over-fitting of the data and this process actually decreased our baseline predictor model's test and training RMSE since we shrunk extreme bias values toward the global average.
 
-RMSE is used to measure how close our predictions are compared to teh actual ratings. The lower RMSE of the baseline predictor confirms it outperforms the raw average model, indicating meaningful improvement. Sushi Spot and Curry Corner have negative item biases, suggesting they are consistently rated below average by users. Burger Barn and Taco Town on the other hand received higher average ratings from users which indicates customer satisfaction.
+RMSE is used to measure how close our predictions are compared to the actual ratings. The lower RMSE of the baseline predictor confirms it outperforms the raw average model, indicating meaningful improvement. Sushi Spot and Curry Corner have negative item biases, suggesting they are consistently rated below average by users. Burger Barn and Taco Town on the other hand received higher average ratings from users which indicates customer satisfaction.
 
-The users Alice and Ella will provide higher ratings compared to others on average which are positive user biases. The negative user biases would be David and Cindy.
+The users Alice and Ella will provide higher ratings compared to others on average which are positive user biases. The negative user biases would be David and Cindy. The prediction for the baseline model takes the bias into consideration compared to the raw average predictions which is the same for all of them. 
+
+Potential errors is not conduction regularization which would cause overfitting on the data. Another issue would be the handling of NAs in the data set. If we replace the NAs with zero it could consider it as a datapoint and it would be best to leave it as NA. But if we have too many NAs in the dataset it could potentially be an issue. 
+
+One of the issues we may encounter is cold start which is not having enough ratings from users or items. We can try to assign zeros biasto new users and items and fallback on the global average. 
