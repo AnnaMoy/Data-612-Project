@@ -2,20 +2,24 @@
 title: "Data612 - Project 2"
 author: "Anna Moy & Natalie Kalukeerthie"
 date: "2025-06-15"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Introduction 
 
-```{r}
+In this assignment we are using the MovieLens data set and building a recommender system using the Content-Based Filtering, User-User Collaborative Filtering and Item-Item Collaborative Filtering. We will compared the results of the different recommender and determine which recommender was the best in providing a recommendation for the user.
+
+```{r, warning = FALSE, message=FALSE}
 # Load Library
 library(recommenderlab)
 library(ggplot2)
+library(knitr)
+library(tidyverse)
 ```
-
 
 ```{r}
 # Load built-in MovieLens dataset
@@ -23,10 +27,120 @@ data(MovieLense)
 MovieLense
 ```
 
+# What are the different types of Recommender Systems?
+
+**Content Based Filtering** uses item features and recommends items that are similar to what the user already likes. 
+
+**User-User Collaborative Filtering** is predicting items that a user might liked based on preferences of other users who have similar taste.
+
+**Item-Item Collaborative Filtering** is providing recommendations on similar items the user has already liked. 
+
+
+# Split the Data into Training and Testing Dataset
+
+The first step is to split the data into a training (80%) and testing data (20%) set. Since the data has many rows we are going to only look at the first 500 rows of items and find out the 10 items for each of the users. 
+
 ```{r}
 # Create 80% train, 20% test, Looks at 10 items by each user and ratings that are greater or equal to 4
+set.seed(123)
 split_data <- evaluationScheme(MovieLense[1:500], method = "split", train = 0.8, given = 10, goodRating = 4)
 
+```
+
+
+# Content-Based Filtering
+
+We are taking the training dataset and building a Content-Based model which will recommend similar items the user already liked. Then using the model we will generate predictions for test users. We evaluate the see how well the predictions are by looking at the RMSE, MSE and MAE. 
+
+**RSME (Root Mean Squared Error)** - measures the average difference between the predicted values and actual values
+
+$$
+\text{RMSE} = \sqrt{ \frac{1}{n} \sum_{i=1}^{n} \left( \hat{y}_i - y_i \right)^2 }
+$$
+Where:  
+- \( \hat{y}_i \) = predicted value for the \(i\)-th observation  
+- \( y_i \) = actual value for the \(i\)-th observation  
+- \( n \) = total number of observations
+
+**MSE (Mean Squared Error)** - measures the average squared difference between the predicted values and actual values
+
+$$
+\text{MSE} = \frac{1}{n} \sum_{i=1}^{n} \left( \hat{y}_i - y_i \right)^2
+$$
+
+**MAE (Mean Absolute Error)** - meaures the average size of the mistakes in a collection of predictions
+
+$$
+\text{MAE} = \frac{1}{n} \sum_{i=1}^{n} \left| \hat{y}_i - y_i \right|
+$$
+
+
+```{r}
+# Movie IDs are the column names of the training data
+#train_data <- getData(split_data, "train")
+#movie_ids <- colnames(train_data)
+
+# Define genres
+#genres <- c("Action", "Comedy", "Drama", "Romance", "Thriller")
+
+# Create random binary features for each movie in train data
+#set.seed(123)
+#genre_matrix <- matrix(sample(0:1, length(movie_ids) * length(genres), replace = TRUE), 
+#                       nrow = length(movie_ids), ncol = length(genres),
+#                       dimnames = list(movie_ids, genres))
+
+# Ensure it's a matrix (not data.frame)
+#class(genre_matrix)  # Should be "matrix"
+# Build Content-Based Filtering
+#cbf_model1 <- Recommender(train_data, method = "CONTENT",
+#                         parameter = list(itemFeatures = genre_matrix))
+
+# Generate predictions on the test data
+#predict_cbf1 <- predict(cbf_model1, getData(split_data, "known"), type = "ratings")
+
+# Evaluate the model performance
+#accuracy_cbf1 <- calcPredictionAccuracy(predict_cbf1, getData(split_data, "unknown"))
+
+# Print results
+#print("Content-Based Filtering Model")
+#print(accuracy_cbf)
+
+```
+
+# User-User Based Collaborative Filtering and Item-Item Based Collaborative Filtering
+
+In both recommender system we take the training data and build a model for either a user-user based collaborative filtering or item-item based collaborative filtering. We then run predictions on it for the test users and evaulation the model to determine which model was the best. 
+
+**Cosine Similarity** - Measures the angle between two vectors. It calculates how similar the ratings directions are. The value ranges from -1 to 1. 
+
+* 1 - means the users are similar in preference directions
+* 0 - means there is no similarity
+* -1 - means they the users are opposite
+
+$$
+\text{cosine}(A, B) = \frac{\sum_{i=1}^{n} A_i B_i}{\sqrt{\sum_{i=1}^{n} A_i^2} \times \sqrt{\sum_{i=1}^{n} B_i^2}}
+$$
+
+Where:
+
+- \(A_i\) and \(B_i\) are elements of vectors \(A\) and \(B\)
+- \(n\
+
+**Nearest Neighbors** - identifies the closest data points to a given point in the dataset
+
+
+**Pearson Correlation** - measures the linear relationship between two users' ratings and takes into account the difference in their rating scale (mean-centered)
+
+$$
+r = \frac{\sum_{i=1}^{n} (A_i - \bar{A})(B_i - \bar{B})}{\sqrt{\sum_{i=1}^{n} (A_i - \bar{A})^2} \times \sqrt{\sum_{i=1}^{n} (B_i - \bar{B})^2}}
+$$
+
+Where:
+
+- \(A_i\) and \(B_i\) are elements of vectors \(A\) and \(B\)
+- \(\bar{A}\) and \(\bar{B}\) are the mean values of vectors \(A\) and \(B\)
+- \(n\) is the number of elements in each vector
+```{r}
 #User Based Collaborative Filtering
 ubcf_model1 <- Recommender(getData(split_data, "train"), method = "UBCF",
                           parameter = list(nn = 10))
@@ -60,31 +174,50 @@ accuracy_ibcf2 <- calcPredictionAccuracy(predict_ibcf2, getData(split_data, "unk
 accuracy_ubcf3 <- calcPredictionAccuracy(predict_ubcf3, getData(split_data, "unknown"))
 accuracy_ibcf3 <- calcPredictionAccuracy(predict_ibcf3, getData(split_data, "unknown"))
 
-# Compare RMSE, MSE and MAE
-# UBCF Model 1
-print("User Based Collaborative Filtering 1")
-print(accuracy_ubcf1)
-
-# IBCF Model 1
-print("Item Based Collaborative Filtering 1")
-print(accuracy_ibcf1)
-
-# UBCF Model 2
-print("User Based Collaborative Filtering 2")
-print(accuracy_ubcf2)
-
-# IBCF Model 2
-print("Item Based Collaborative Filtering 2")
-print(accuracy_ibcf2)
-
-# UBCF Model 3
-print("User Based Collaborative Filtering 3")
-print(accuracy_ubcf3)
-
-# IBCF Model 3
-print("Item Based Collaborative Filtering 3")
-print(accuracy_ibcf3)
 ```
+
+
+```{r}
+# Create a data frame summarizing the models and their accuracy metrics
+results_df <- data.frame(
+  Model = c(
+    "User Based Collaborative Filtering 1",
+    "Item Based Collaborative Filtering 1",
+    "User Based Collaborative Filtering 2",
+    "Item Based Collaborative Filtering 2",
+    "User Based Collaborative Filtering 3",
+    "Item Based Collaborative Filtering 3"
+  ),
+  RMSE = c(
+    accuracy_ubcf1["RMSE"],
+    accuracy_ibcf1["RMSE"],
+    accuracy_ubcf2["RMSE"],
+    accuracy_ibcf2["RMSE"],
+    accuracy_ubcf3["RMSE"],
+    accuracy_ibcf3["RMSE"]
+  ),
+  MSE = c(
+    accuracy_ubcf1["MSE"],
+    accuracy_ibcf1["MSE"],
+    accuracy_ubcf2["MSE"],
+    accuracy_ibcf2["MSE"],
+    accuracy_ubcf3["MSE"],
+    accuracy_ibcf3["MSE"]
+  ),
+  MAE = c(
+    accuracy_ubcf1["MAE"],
+    accuracy_ibcf1["MAE"],
+    accuracy_ubcf2["MAE"],
+    accuracy_ibcf2["MAE"],
+    accuracy_ubcf3["MAE"],
+    accuracy_ibcf3["MAE"]
+  )
+)
+
+# Print the table nicely in the PDF output
+kable(results_df, caption = "Compare the Results of the Collaborative Filtering Models")
+```
+
 
 ```{r}
 # Combine results into a vector
@@ -119,4 +252,43 @@ ggplot(results, aes(x = Metric, y = Value, fill = Models)) +
   theme_minimal()
 ```
 
-Based on the results it shows the best RMSE is in UBCF3 at 1.129 and the best MSE is UBCF3 at 1.27 and the best MAE is IBCF1 at .763. Overall the best model out of all of these would be UBCF3 as it has the lowest RMSE and MSE out of all the models.   
+```{r}
+
+# Assuming 'results' is your dataframe from above
+
+# Make 'Models' a factor to control order in legend
+results$Models <- factor(results$Models, levels = c("UBCF1", "IBCF1", "UBCF2", "IBCF2", "UBCF3", "IBCF3"))
+
+# Make 'Metric' a factor to control order
+results$Metric <- factor(results$Metric, levels = c("RMSE", "MAE", "MSE"))
+
+ggplot(results, aes(x = Metric, y = Value, fill = Models)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = round(Value, 3)), 
+            position = position_dodge(width = 0.8), vjust = -0.5, size = 3) +
+  labs(
+    title = "Comparing UBCF and IBCF Recommender Models",
+    y = "Error Value",
+    x = "Metric",
+    fill = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5)
+  ) +
+  ylim(0, max(results$Value) * 1.1)  # adds some space for text labels
+```
+
+# Error
+
+Potential error that arise from recommender system is the prediction error on RMSE and MAE. There might be too much noise and limited data which causes errors in the prediction. Cold start problem when we have a new user and there is not enough information to provide a recommendation on items. We might not have enough users rating items which causes limited data for the recommender system. Another common error is overfitting the data which does not give enough variety for the user. 
+
+# Improvement
+
+We can run a Matrix Factorization which will breakdown the data into smaller pieces to run faster. Another improvement we can do is run a hybrid recommendation which includes content based filtering and collaborative based filtering. 
+
+
+# Summary
+
+Based on the results it shows the best RMSE is in UBCF3 at 1.1491 and the best MSE is UBCF3 at 1.3204 and the best MAE is UBCF3 .9045. Overall the best model out of all of these would be UBCF3 as it has the lowest RMSE, MSE and MAE out of all the models.   
