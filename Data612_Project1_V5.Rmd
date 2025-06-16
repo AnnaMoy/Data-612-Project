@@ -1,14 +1,10 @@
 ---
-title: "Data 613 - Project 1"
+title: "Data 612 - Project 1"
 author: "Anna Moy & Natalie Kalukeerthie"
 date: "2025-06-08"
-<<<<<<< Updated upstream
-output: pdf_document
-=======
 output:
-  pdf_document: default
-  html_document: default
->>>>>>> Stashed changes
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
