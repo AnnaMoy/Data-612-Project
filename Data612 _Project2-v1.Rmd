@@ -3,8 +3,8 @@ title: "Data612 - Project 2"
 author: "Anna Moy & Natalie Kalukeerthie"
 date: "2025-06-15"
 output:
-  html_document:
-    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
@@ -190,11 +190,14 @@ rmse <- sqrt(mean((predicted - actual)^2))
 mse <- mean((predicted - actual)^2)
 mae <- mean(abs(predicted - actual))
 
-cat("Content-Based Filtering Evaluation:\n")
-cat("RMSE:", round(rmse, 4), "\n")
-cat("MSE: ", round(mse, 4), "\n")
-cat("MAE: ", round(mae, 4), "\n")
+# Create a data frame for the metrics
+cbf_results <- data.frame(
+  Metric = c("RMSE", "MSE", "MAE"),
+  Value = round(c(rmse, mse, mae), 4)
+)
 
+# Display as a table
+kable(cbf_results, caption = "Content-Based Filtering Evaluation Metrics")
 ```
 
 ```{old content based filtering data r}
@@ -364,24 +367,21 @@ values <- c(
   
   accuracy_ubcf3["RMSE"], accuracy_ibcf3["RMSE"],
   accuracy_ubcf3["MAE"],  accuracy_ibcf3["MAE"],
-  accuracy_ubcf3["MSE"],  accuracy_ibcf3["MSE"]
-)
+  accuracy_ubcf3["MSE"],  accuracy_ibcf3["MSE"])
 
 # Build the results dataframe
 results <- data.frame(
   Metric = rep(c("RMSE", "MAE", "MSE"), times = 6),
   Models = rep(c("UBCF1", "IBCF1", "UBCF2", "IBCF2", "UBCF3", "IBCF3"), each = 3),
-  Value = as.numeric(values)
-)
+  Value = as.numeric(values))
 
-ggplot(results, aes(x = Metric, y = Value, fill = Models)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(
-    title = "Comparing UBCF and IBCF Recommender Models",
-    y = "Prediction Error",
-    x = "Metric"
-  ) +
-  theme_minimal()
+#ggplot(results, aes(x = Metric, y = Value, fill = Models)) +
+#  geom_bar(stat = "identity", position = "dodge") +
+#  labs(
+#    title = "Comparing UBCF and IBCF Recommender Models",
+#    y = "Prediction Error",
+#    x = "Metric" ) +
+#  theme_minimal()
 ```
 
 ```{r}
@@ -422,6 +422,6 @@ We can run a Matrix Factorization which will breakdown the data into smaller pie
 
 # Summary
 
-Based on the results it shows the best RMSE is in UBCF3 at 1.1491 and the best MSE is UBCF3 at 1.3204 and the best MAE is UBCF3 .9045. Overall the best model out of all of these would be UBCF3 as it has the lowest RMSE, MSE and MAE out of all the models.
+Based on the results it shows the best RMSE is in UBCF3 at 1.1491 and the best MSE is UBCF3 at 1.3204 and the best MAE is UBCF3 .9045. Overall the best model out of all of these would be UBCF3 as it has the lowest RMSE, MSE and MAE out of all the models. In this model using the Pearson Correlation and nearest neighbor at 30 had the best outcome result. Using the same method for both User and Item based filtering the User based filtering tends to do better from the item based filtering with the same parameters being used. 
 
 While we implemented a content-based filtering approach using movie genre features, its predictive accuracy was noticeably lower than both user-user and item-item collaborative filtering models. The content-based model had higher RMSE, MSE, and MAE values, suggesting it struggled to capture user preferences as effectively. This outcome may be due to the limited expressiveness of the genre features alone, which do not fully represent users’ nuanced tastes compared to the richer implicit feedback captured in collaborative filtering methods. Overall, the results highlight that, for this dataset, collaborative filtering—especially user-user based—is a more effective approach than content-based filtering using simple genre data. 
