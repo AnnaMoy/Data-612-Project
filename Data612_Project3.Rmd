@@ -1,0 +1,71 @@
+---
+title: "Data612 - Project 3"
+author: "Anna Moy & Natalie Kalukeerthie"
+date: "2025-06-22"
+output: html_document
+---
+
+# What is Singular Value Decomposition (SVD)?
+
+A method used in linear algebra to decompose a matrix into 3 simpler matrices which makes it easier to analyze and manipulate the data. 
+
+
+he Singular Value Decomposition (SVD) of a matrix \( R \) is:
+
+\[
+R \approx U \Sigma V^T
+\]
+
+Where:
+
+- \( R \) is the user–item rating matrix,
+- \( U \) is the matrix of user latent features,
+- \( \Sigma \) (or \( D \)) is the diagonal matrix of singular values,
+- \( V^T \) is the transpose of the item latent feature matrix.
+
+```{r, warning=FALSE, message=FALSE}
+# Load libraries
+library(recommenderlab)
+library(irlba)
+```
+
+```{r}
+# Load MovieLens data
+data("MovieLense")
+ratings <- MovieLense
+```
+
+```{r}
+# Create a smaller subset
+set.seed(42)
+small_ratings <- ratings[1:100, 1:100]  # 100 users, 100 items
+
+# Convert to matrix for SVD
+rating_mat <- as(small_ratings, "matrix")
+
+# Step 1: Replace NAs with row means (with fallback to global mean)
+row_means <- rowMeans(rating_mat, na.rm = TRUE)
+global_mean <- mean(rating_mat, na.rm = TRUE)
+row_means[is.na(row_means)] <- global_mean  # handle rows with all NA
+
+rating_imputed <- rating_mat
+for (i in 1:nrow(rating_imputed)) {
+  rating_imputed[i, is.na(rating_imputed[i, ])] <- row_means[i]
+}
+
+# Step 2: Proper row-centering using sweep()
+rating_centered <- sweep(rating_imputed, 1, row_means)
+
+# Step 3: Apply truncated SVD
+svd_result <- irlba(rating_centered, nv = 20)
+
+# Step 4: Reconstruct approximate ratings
+approx_ratings <- svd_result$u %*% diag(svd_result$d) %*% t(svd_result$v)
+
+# Step 5: Add back row means using sweep
+predicted_ratings <- sweep(approx_ratings, 1, row_means, FUN = "+")
+
+# Step 6: View predictions
+head(predicted_ratings[, 1:5])
+
+```
