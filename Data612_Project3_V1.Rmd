@@ -181,7 +181,7 @@ Overall, SVD matrix factorization offers a powerful dimensionality reduction tec
 
 # Potential issues
 
-Issues in which we have to watch out for in our model is imputing missing ratings using the mean which could create bias predictions towards the average preferences since SVD is not able to handle missing data.  We did use mean centering to remove user bias but does not address item biases for movies which higher or lower ratings. In our model we used K = 20 but we may want to find out the most optimal without losing important information or overfitting the model. SVD is not scalable if we are using this for a large dataset and may want to use Alternative Least Squares.
+Issues in which we have to watch out for in our model is imputing missing ratings using the mean which could create bias predictions towards the average preferences since SVD is not able to handle missing data.  We did use mean centering to remove user bias but does not address item biases for movies which higher or lower ratings. In our model we used K = 20 but we may want to find out the most optimal without losing important information or overfitting the model. When we have a lower k it will run faster and less likely to overfit but may missing small details. If K is too large we are keeping more features and losing the details. The purpose of K is to change the dimensionality of the latent space where users and movies are represented.  SVD is not scalable if we are using this for a large dataset and may want to use Alternative Least Squares.
 
 # Possible Improvements or considerations
 
