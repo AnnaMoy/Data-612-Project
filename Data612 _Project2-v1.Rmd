@@ -200,7 +200,8 @@ cbf_results <- data.frame(
 kable(cbf_results, caption = "Content-Based Filtering Evaluation Metrics")
 ```
 
-```{old content based filtering data r}
+```{r}
+#Old code for content based filtering
 # Movie IDs are the column names of the training data
 #train_data <- getData(split_data, "train")
 #movie_ids <- colnames(train_data)

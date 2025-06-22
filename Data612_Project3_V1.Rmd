@@ -2,7 +2,10 @@
 title: "Data612-Project 3"
 author: "Natalie Kalukeerthie & Anna Moy"
 date: "2025-06-20"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -186,3 +189,5 @@ Issues in which we have to watch out for in our model is imputing missing rating
 # Possible Improvements or considerations
 
 Ways we can improve our model is using the Alternative Least Squares(ALS) and see how it compares to Singular Value Decomposition. ALS has a built in regularization to prevent the data from being overfitted and does not require any imputation of missing data compared to SVD. Another option is using the baseline predictor and capture the user and item bias before we conduct factorization on the data. Adding regularization in the model can avoid it from being overfitted. 
+
+In relation to data sparsity and cold starts, SVD assumes that all values are known (thus requiring imputation). This can create a bias towards mean values, especially for users or items with few ratings. Considering a hybrid approach that blend SVD with content-based features or metadata for cold-start users/items would be efficient. One other way to improve would also be that our model subtracts user means to reduce user bias, but it has also been recommended subtract item means or use double centering to handle both user and item biases as well. This could improve fairness and personalization.
