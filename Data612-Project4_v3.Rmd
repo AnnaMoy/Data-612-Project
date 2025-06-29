@@ -91,27 +91,18 @@ pred_diverse <- new("topNList",
 
 We introduced diversity shuffling in the data. Taking the top 5 recommendations for the original SVD model and shuffled the data. Then reconstructed a new object wit the shuffled recommendation. By conducting shuffling we reduce accuracy and increase serendipity and novelty. 
 ```{r}
+# Gives you precision and recall of the original SVD top 5 listed.
 # Evaluate original SVD top-N recommendations
 eval_orig <- evaluate(scheme, method = "SVD", type = "topNList", n = 5)
 avg_prec_orig <- avg(eval_orig, "prec")
 avg_rec_orig <- avg(eval_orig, "rec")
 
-# For diverse recommendations, since it's manually created, 
-# you may estimate precision by comparing with "unknown" ratings:
-
-# Convert pred_diverse to a ratings prediction or
-# compute precision manually by checking if recommended items appear in "unknown"
-
-# (This step often requires custom code or approximations)
-
 cat(sprintf("Original Precision: %.3f, Recall: %.3f\n", avg_prec_orig, avg_rec_orig))
 # print some approximation or note on diverse recommendations accuracy here
 
 ```
-
-
 ```{r,warning = FALSE}
-# Approximate precision for diverse recommendations:
+# Approximate precision for diverse SCD recommendations:
 # Check how many recommended items appear in the unknown/test data for each user
 
 unknown_data <- getData(scheme, "unknown")
@@ -126,6 +117,72 @@ precision_diverse <- mean(sapply(1:length(diverse_lists), function(u) {
 
 cat(sprintf("Approximate Diverse Recommendations Precision: %.3f\n", precision_diverse))
 
+#Compares the original SVD and Diverse SVD
+```
+
+```{r, warning = FALSE}
+unknown_data <- getData(scheme, "unknown")
+diverse_lists <- as(pred_diverse, "list")
+
+# Precision
+precision_diverse <- mean(sapply(seq_along(diverse_lists), function(u) {
+  recommended <- diverse_lists[[u]]
+  relevant <- which(!is.na(unknown_data[u, ]))
+  if (length(recommended) == 0) return(NA)
+  length(intersect(recommended, relevant)) / length(recommended)
+}), na.rm = TRUE)
+
+# Recall
+recall_diverse <- mean(sapply(seq_along(diverse_lists), function(u) {
+  recommended <- diverse_lists[[u]]
+  relevant <- which(!is.na(unknown_data[u, ]))
+  if (length(relevant) == 0) return(NA)
+  length(intersect(recommended, relevant)) / length(relevant)
+}), na.rm = TRUE)
+
+unknown_data <- getData(scheme, "unknown")
+diverse_lists <- as(pred_diverse, "list")
+
+# Precision
+precision_diverse <- mean(sapply(seq_along(diverse_lists), function(u) {
+  recommended <- diverse_lists[[u]]
+  relevant <- which(!is.na(unknown_data[u, ]))
+  if (length(recommended) == 0) return(NA)
+  length(intersect(recommended, relevant)) / length(recommended)
+}), na.rm = TRUE)
+
+# Recall
+recall_diverse <- mean(sapply(seq_along(diverse_lists), function(u) {
+  recommended <- diverse_lists[[u]]
+  relevant <- which(!is.na(unknown_data[u, ]))
+  if (length(relevant) == 0) return(NA)
+  length(intersect(recommended, relevant)) / length(relevant)
+}), na.rm = TRUE)
+
+library(proxy)
+
+item_sim <- similarity(rrm, method = "cosine", which = "items")
+item_sim <- as.matrix(item_sim)  # <-- convert to matrix
+
+intra_list_similarity <- function(item_list, sim_matrix) {
+  if (length(item_list) < 2) return(0)
+  pairs <- combn(item_list, 2)
+  sims <- apply(pairs, 2, function(pair) sim_matrix[pair[1], pair[2]])
+  mean(sims)
+}
+
+original_items_int <- lapply(original_items, function(x) match(x, colnames(rrm)))
+
+ils_values <- sapply(original_items_int, function(x) intra_list_similarity(x, sim_matrix = item_sim))
+
+avg_ils_orig <- mean(ils_values)
+cat("Average intra-list similarity (original):", avg_ils_orig, "\n")
+
+cat("Original SVD diversity (intra-list similarity): ", avg_ils_orig, "\n")
+avg_ils_diverse <- mean(sapply(diverse_list, function(x) intra_list_similarity(x, sim_matrix = item_sim)))
+cat("Diverse SVD diversity (intra-list similarity): ", avg_ils_diverse, "\n")
+
+
 
 ```
 
@@ -133,10 +190,12 @@ cat(sprintf("Approximate Diverse Recommendations Precision: %.3f\n", precision_d
 # Summary
 It is taking the diverse (shuffled) recommendation match the actual items rated by users in the test dataset.Shuffling the recommendation is a good way to increase diversity and novelty. The results shows the precision is 0.00 which indicates there is no overlap between diverse list and the test item. For the top 5 recommendation accuracy we looked at precision and recall. The SVD model shows high variability since precision/recall scores changes from .031 to 89.97 depending on the evaluation fold or user. This indicates some users received high relevant recommendation which others did not. 
 
+The original SVD intra-list similarity is .7779104 which means it has low diversity and most of the recommendations tend to be similar jokes. In the Diverse SVD is because there are some recommendation which has fewer than two items and it did not calculate property. 
+
 # Errors
 
 Potential errors with using shuffling is that it destroys relevance completely. And in most causes this will show the precision as 0 since the random items are not going to match what the users like. 
 
 # Improvements
 
-When we conduct shuffling of items it does not introduce new or different items but recommending it in different orders. Replacing it with items that are less similar or less popular jokes may increase diversity. 
+When we conduct shuffling of items it does not introduce new or different items but recommending it in different orders. Replacing it with items that are less similar or less popular jokes may increase diversity. We received NA on our results for the diverse SVD which we can improve by ignoring the NA values when we are calculating the average. 
