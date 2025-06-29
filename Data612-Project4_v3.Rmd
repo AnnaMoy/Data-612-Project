@@ -26,6 +26,7 @@ Using evaluation Scheme, we split data into training (80%) and testing (20%) set
 
 ```{r}
 # 80–20 split, 10 observed ratings per user retained for "known"
+set.seed(123)
 scheme <- evaluationScheme(rrm, method = "split", train = 0.8, given = 10, goodRating = 3)
 
 ```
@@ -60,15 +61,17 @@ print(acc)
 
 ```
 
-Overall the results of Singular Value Decomposition (SVD) outperforms the User based collaborative filtering as the RMSE, MSE and MAE was the lowest which means it has a better accuracy in its predictions. RMSE measures the average error which is 4.513169 and MAE indicates on average the predictions were off by 3.539866 points. 
+Overall the results of Singular Value Decomposition (SVD) outperforms the User based collaborative filtering(UBCF) as the RMSE, MSE and MAE was the lowest. It's lower RMSE and MAE suggest it  not only reduces large errors but also more reliable and consistent recommendation across users. RMSE measures the average error which is 4.556161 and MAE indicates on average the predictions were off by 3.559910 points. SVD uses matrix factorization, which captures hidden relationships between users and items. It is able to handle sparsity by generalizing. UBCF relies on direct overlap between users and sparse data is challenging for it to handle. 
+
+
 
 ```{r, warning = FALSE}
-#Increase Diversity
+#Diversity by Shuffling
 # Top 5 recommendation from original SVD model
 topN_SVD <- predict(rec_SVD, getData(scheme, "known"), type = "topNList", n = 5)
 original_items <- as(topN_SVD, "list")
 
-# Shuffle top-N recommendations to simulate a more diverse rerank
+# Shuffle top-5 recommendations to simulate a more diverse rerank
 set.seed(123)
 diverse_list <- lapply(original_items, function(x) {
   sampled_chars <- sample(x, length(x))            # shuffle the joke IDs (characters)
@@ -86,6 +89,7 @@ pred_diverse <- new("topNList",
 
 ```
 
+We introduced diversity shuffling in the data. Taking the top 5 recommendations for the original SVD model and shuffled the data. Then reconstructed a new object wit the shuffled recommendation. By conducting shuffling we reduce accuracy and increase serendipity and novelty. 
 ```{r}
 # Evaluate original SVD top-N recommendations
 eval_orig <- evaluate(scheme, method = "SVD", type = "topNList", n = 5)
@@ -124,3 +128,15 @@ cat(sprintf("Approximate Diverse Recommendations Precision: %.3f\n", precision_d
 
 
 ```
+
+
+# Summary
+It is taking the diverse (shuffled) recommendation match the actual items rated by users in the test dataset.Shuffling the recommendation is a good way to increase diversity and novelty. The results shows the precision is 0.00 which indicates there is no overlap between diverse list and the test item. For the top 5 recommendation accuracy we looked at precision and recall. The SVD model shows high variability since precision/recall scores changes from .031 to 89.97 depending on the evaluation fold or user. This indicates some users received high relevant recommendation which others did not. 
+
+# Errors
+
+Potential errors with using shuffling is that it destroys relevance completely. And in most causes this will show the precision as 0 since the random items are not going to match what the users like. 
+
+# Improvements
+
+When we conduct shuffling of items it does not introduce new or different items but recommending it in different orders. Replacing it with items that are less similar or less popular jokes may increase diversity. 
