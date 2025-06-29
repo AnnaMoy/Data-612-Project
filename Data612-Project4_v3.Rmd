@@ -1,0 +1,126 @@
+---
+title: "Data 612 - Project 4"
+author: "Anna Moy & Natalie Kalukeerthie"
+date: "2025-06-23"
+output: html_document
+---
+
+```{r, message= FALSE, warning=FALSE}
+# Load libraries
+library(recommenderlab)
+library(Matrix)
+```
+
+
+The Jester 5k dataset contains 5k users and 100 jokes and the ratings ranges from -10 to 10. 
+
+We load the built- in Jester 5k data set from the recommederlab package to create a basic recommender system. 
+
+```{r}
+# Load the built-in Jester5k dataset (5,000 users × 100 jokes)
+data(Jester5k, package = "recommenderlab")
+rrm <- Jester5k
+```
+
+Using evaluation Scheme, we split data into training (80%) and testing (20%) sets.given = 10 is used here so each user keeps 10 known ratings for training and the rest is "unknown: and used for test predictions. 
+
+```{r}
+# 80–20 split, 10 observed ratings per user retained for "known"
+scheme <- evaluationScheme(rrm, method = "split", train = 0.8, given = 10, goodRating = 3)
+
+```
+
+We train two models which is the user-user collaborative filtering (UBCF) and Singluar Value Decomposition (SVD).
+
+User based collaborative filtering (UBCF) - recommends items liked by user with similar tastes
+Singular Value Decomposition (SVD) - matrix factorization that finds hidden patterns in user preferences
+
+```{r}
+# User-User Collaborative Filtering (UBCF)
+rec_UBCF <- Recommender(getData(scheme, "train"), method = "UBCF")
+
+# SVD-based model
+rec_SVD <- Recommender(getData(scheme, "train"), method = "SVD")
+
+```
+
+Predicts the rating for both the UBCF and SVD and compared the Root Mean Square Error (RSME), Mean Absolute Error (MAE) and Mean Squared Error (MSE) to determine which one has a better prediction. 
+
+```{r}
+# Predict ratings
+pred_UBCF <- predict(rec_UBCF, getData(scheme, "known"), type = "ratings")
+pred_SVD  <- predict(rec_SVD,  getData(scheme, "known"), type = "ratings")
+
+# Evaluate accuracy (RMSE/MAE)
+acc <- rbind(
+  UBCF = calcPredictionAccuracy(pred_UBCF, getData(scheme, "unknown")),
+  SVD  = calcPredictionAccuracy(pred_SVD,  getData(scheme, "unknown"))
+)
+print(acc)
+
+```
+
+Overall the results of Singular Value Decomposition (SVD) outperforms the User based collaborative filtering as the RMSE, MSE and MAE was the lowest which means it has a better accuracy in its predictions. RMSE measures the average error which is 4.513169 and MAE indicates on average the predictions were off by 3.539866 points. 
+
+```{r, warning = FALSE}
+#Increase Diversity
+# Top 5 recommendation from original SVD model
+topN_SVD <- predict(rec_SVD, getData(scheme, "known"), type = "topNList", n = 5)
+original_items <- as(topN_SVD, "list")
+
+# Shuffle top-N recommendations to simulate a more diverse rerank
+set.seed(123)
+diverse_list <- lapply(original_items, function(x) {
+  sampled_chars <- sample(x, length(x))            # shuffle the joke IDs (characters)
+  matched_indices <- match(sampled_chars, colnames(rrm))  # convert to integer indices
+  return(matched_indices)
+})
+
+# Rebuild new top5List object
+pred_diverse <- new("topNList",
+                    items = diverse_list,
+                    itemLabels = colnames(rrm),
+                    n = as.integer(5))
+
+
+
+```
+
+```{r}
+# Evaluate original SVD top-N recommendations
+eval_orig <- evaluate(scheme, method = "SVD", type = "topNList", n = 5)
+avg_prec_orig <- avg(eval_orig, "prec")
+avg_rec_orig <- avg(eval_orig, "rec")
+
+# For diverse recommendations, since it's manually created, 
+# you may estimate precision by comparing with "unknown" ratings:
+
+# Convert pred_diverse to a ratings prediction or
+# compute precision manually by checking if recommended items appear in "unknown"
+
+# (This step often requires custom code or approximations)
+
+cat(sprintf("Original Precision: %.3f, Recall: %.3f\n", avg_prec_orig, avg_rec_orig))
+# print some approximation or note on diverse recommendations accuracy here
+
+```
+
+
+```{r,warning = FALSE}
+# Approximate precision for diverse recommendations:
+# Check how many recommended items appear in the unknown/test data for each user
+
+unknown_data <- getData(scheme, "unknown")
+diverse_lists <- as(pred_diverse, "list")
+
+precision_diverse <- mean(sapply(1:length(diverse_lists), function(u) {
+  recommended <- diverse_lists[[u]]
+  relevant <- which(!is.na(unknown_data[u, ]))  # items user rated in test
+  if (length(recommended) == 0) return(NA)
+  length(intersect(recommended, relevant)) / length(recommended)
+}), na.rm = TRUE)
+
+cat(sprintf("Approximate Diverse Recommendations Precision: %.3f\n", precision_diverse))
+
+
+```
