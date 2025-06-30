@@ -1,8 +1,8 @@
 ---
 title: "Data 612 - Project 4"
 author: "Anna Moy & Natalie Kalukeerthie"
-date: "2025-06-23"
-output: html_document
+date: "2025-06-29"
+output: pdf_document
 ---
 
 ```{r, message= FALSE, warning=FALSE}
@@ -61,7 +61,7 @@ print(acc)
 
 ```
 
-Overall the results of Singular Value Decomposition (SVD) outperforms the User based collaborative filtering(UBCF) as the RMSE, MSE and MAE was the lowest. It's lower RMSE and MAE suggest it  not only reduces large errors but also more reliable and consistent recommendation across users. RMSE measures the average error which is 4.556161 and MAE indicates on average the predictions were off by 3.559910 points. SVD uses matrix factorization, which captures hidden relationships between users and items. It is able to handle sparsity by generalizing. UBCF relies on direct overlap between users and sparse data is challenging for it to handle. 
+Overall the results of Singular Value Decomposition (SVD) outperforms the User based collaborative filtering(UBCF) as the RMSE, MSE and MAE was the lowest. It's lower RMSE and MAE suggest it  not only reduces large errors but also more reliable and consistent recommendation across users. RMSE measures the average error which is 4.556161 and MAE indicates on average the predictions were off by 3.559910 points. SVD uses matrix factorization, which captures hidden relationships between users and items. It is able to handle sparsity by generalizing but at the same time with higher accuracy there is a risk that we are recommending items that are very similar.  UBCF relies on direct overlap between users and sparse data is challenging for it to handle. UBCF is more prone to overfitting in spare dataset since it relies heavily on overlap in user profiles. We can prevent overfitting by adding regularization and cross validation to the model. 
 
 
 
@@ -188,7 +188,7 @@ cat("Diverse SVD diversity (intra-list similarity): ", avg_ils_diverse, "\n")
 
 
 # Summary
-It is taking the diverse (shuffled) recommendation match the actual items rated by users in the test dataset.Shuffling the recommendation is a good way to increase diversity and novelty. The results shows the precision is 0.00 which indicates there is no overlap between diverse list and the test item. For the top 5 recommendation accuracy we looked at precision and recall. The SVD model shows high variability since precision/recall scores changes from .031 to 89.97 depending on the evaluation fold or user. This indicates some users received high relevant recommendation which others did not. 
+It is taking the diverse (shuffled) recommendation match the actual items rated by users in the test dataset.Shuffling the recommendation is a good way to increase diversity and novelty and avoiding redundancy. The results shows the precision is 0.00 which indicates there is no overlap between diverse list and the test item. For the top 5 recommendation accuracy we looked at precision and recall. The SVD model shows high variability since precision/recall scores changes from .031 to 89.97 depending on the evaluation fold or user. This indicates some users received high relevant recommendation which others did not. 
 
 The original SVD intra-list similarity is .7779104 which means it has low diversity and most of the recommendations tend to be similar jokes. In the Diverse SVD is because there are some recommendation which has fewer than two items and it did not calculate property. 
 
