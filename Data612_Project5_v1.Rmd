@@ -2,7 +2,7 @@
 title: "Data 612 - Project 5"
 author: "Anna Moy & Natalie Kalukeerthie"
 date: "2025-07-06"
-output: html_document
+output: pdf_document
 ---
 
 
@@ -59,7 +59,6 @@ evaluator <- ml_regression_evaluator(sc,
                                      metric_name = "rmse")
 
 rmse <- ml_evaluate(evaluator, predictions)
-print(paste("RMSE on test data:", rmse))
 
 # Collect predictions to R and join movie titles locally for display
 preds_local <- predictions %>%
@@ -76,7 +75,6 @@ mse_evaluator <- ml_regression_evaluator(sc,
                                          metric_name = "mse")
 
 mse <- ml_evaluate(mse_evaluator, predictions)
-print(paste("MSE on test data:", mse))
 
 #MAE
 preds_local <- predictions %>% collect()
@@ -98,7 +96,7 @@ spark_disconnect(sc)
 ```
 
 # Summary 
-In Project 2, User-Based Collaborative Filtering (UBCF) and Item-Based Collaborative Filtering (IBCF) were applied to the MovieLens dataset. The RMSE values ranged from 1.15 to 1.52, which is significantly higher than the RMSE of 0.9208 achieved by the Alternating Least Squares (ALS) model implemented in Spark. The ALS model also produced lower MAE and MSE values compared to the UBCF and IBCF models. Overall, Spark provided better prediction accuracy, scalability, and performance—even when running on a local machine—though it introduced some additional complexity.
+In Project 2, User-Based Collaborative Filtering (UBCF) and Item-Based Collaborative Filtering (IBCF) were applied to the MovieLens dataset. The RMSE values ranged from 1.15 to 1.52, which is significantly higher than the RMSE of 0.921 achieved by the Alternating Least Squares (ALS) model implemented in Spark. The ALS model also produced lower MAE and MSE values compared to the UBCF and IBCF models. Overall, Spark provided better prediction accuracy, scalability, and performance—even when running on a local machine—though it introduced some additional complexity.
 
 ALS is well-suited for large, sparse datasets with explicit ratings. It effectively handles missing data through regularization. In this implementation, the cold_start_strategy was used to prevent the model from generating predictions for users or items that were not seen during training, thus avoiding misleading or null predictions.
 
