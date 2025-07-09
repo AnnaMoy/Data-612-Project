@@ -1,0 +1,175 @@
+---
+title: "Data612_Final_Project"
+author: "Anna Moy & Natalie Kalukeerthie"
+date: "2025-07-05"
+output: html_document
+---
+
+
+```{r}
+#Load library
+library(sparklyr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(tidytext)
+library(knitr)
+
+```
+
+# Introduction 
+
+In this project we will be building a hybrid movie recommendation systems using the Movielens 100k dataset from [Kaggle - MovieLens 100k] (https://www.kaggle.com/datasets/abhikjha/movielens-100k). Our dataset contains 100k ratings, 3,600 tags, 9k movies and 600 users. 
+
+* Ratings - userid, movieid, rating, timestamp
+* Movies - movieid, title, genres
+* Tags - userid, movieid, tag, timestamp
+
+The approach we used was collaborative filtering with the Alternative Least Squares(ALS) algorithm to build a personalized movie recommendation system based on user ratings.  
+
+We are incorporating content based filtering in the model which is used to recommend movies based on their descriptive features such as genres and user-generated tags. 
+
+
+```{r}
+sc <- spark_connect(master = "local")
+
+# 1. Load the csv files locally to the desktop 
+ratings <- read.csv("/Users/zhianna/Desktop/School/Data612/ratings.csv")
+movies <- read.csv("/Users/zhianna/Desktop/School/Data612/movies.csv")
+tags <- read.csv("/Users/zhianna/Desktop/School/Data612/tags.csv")
+```
+
+```{r}
+# === Process tags: combine all tags per movie === This will concatenate all the unique tags for each movie into a single string
+movie_tags <- tags %>%
+  group_by(movieId) %>%
+  summarise(all_tags = paste(unique(tag), collapse = " ")) %>%
+  ungroup()
+
+# Join tags with movies file 
+# movie file now contain - movieid, title, genres, all tags
+movies <- movies %>%
+  left_join(movie_tags, by = "movieId")
+
+# Replace NA tags with empty string
+movies$all_tags[is.na(movies$all_tags)] <- ""
+
+# Combine genres and tags into one text feature and label it as content (genre + tags) column
+#(movieid, title, genres, tags, content)
+movies <- movies %>%
+  mutate(content = paste(genres, all_tags, sep = " "))
+```
+
+```{r}
+# Create a tokenized version for text features (genres + tags)
+# Count how many times a word appears under the content column (genres + tags) for each movie
+movie_words <- movies %>%
+  select(movieId, content) %>%
+  unnest_tokens(word, content)
+
+# Create document-term matrix for content features
+# Covert the counts into matrix rows are movies and columns are words and values are counts
+dtm <- movie_words %>%
+  count(movieId, word) %>%
+  cast_dtm(document = movieId, term = word, value = n)
+
+# Convert dtm to a matrix for cosine similarity (content-based filtering)
+# Consine similarity measures how close two movies are based on genre and tag words
+# Returns a symmetric matrix of similarity scores between all pairs of movies
+content_matrix <- as.matrix(dtm)
+
+cosine_sim <- function(x) {
+  sim <- x %*% t(x)
+  norm <- sqrt(rowSums(x * x))
+  sim / (norm %*% t(norm))
+}
+
+content_sim_matrix <- cosine_sim(content_matrix)
+
+summary(as.vector(content_sim_matrix))
+
+hist(as.vector(content_sim_matrix), breaks = 50, main = "Distribution of Movie Content Similarity",
+     xlab = "Cosine Similarity", col = "lightblue")
+```
+
+```{r}
+# Preparing Data for Spark
+# Copy ratings to Spark
+ratings_tbl <- copy_to(sc, ratings, "ratings", overwrite = TRUE)
+
+# Create numeric movie IDs for ALS (Spark ALS needs numeric item IDs)
+movie_map <- ratings_tbl %>%
+  distinct(movieId) %>%
+  arrange(movieId) %>%
+  collect() %>%
+  mutate(movie_numeric_id = row_number())
+
+movie_map_tbl <- copy_to(sc, movie_map, "movie_map", overwrite = TRUE)
+
+# Join numeric IDs back into ratings in Spark
+ratings_numeric_tbl <- ratings_tbl %>%
+  inner_join(movie_map_tbl, by = "movieId") %>%
+  select(userId, movie_numeric_id, rating)
+
+# Split data into training (80%) and test (20%)
+set.seed(123)
+splits <- ratings_numeric_tbl %>% sdf_random_split(training = 0.8, test = 0.2)
+training_tbl <- splits$training
+test_tbl <- splits$test
+
+# Train ALS model
+als_model <- training_tbl %>%
+  ml_als(
+    rating_col = "rating",
+    user_col = "userId",
+    item_col = "movie_numeric_id",
+    rank = 10,
+    max_iter = 15,
+    reg_param = 0.1,
+    cold_start_strategy = "drop"
+  )
+
+# Predict on test set
+predictions <- ml_predict(als_model, test_tbl)
+
+# Evaluate model with RMSE
+evaluator <- ml_regression_evaluator(sc,
+                                     label_col = "rating",
+                                     prediction_col = "prediction",
+                                     metric_name = "rmse")
+rmse <- ml_evaluate(evaluator, predictions)
+
+# Evaluate MAE
+preds_local <- predictions %>% collect()
+mae <- mean(abs(preds_local$rating - preds_local$prediction), na.rm = TRUE)
+
+# Calculate MSE from RMSE
+mse <- rmse^2
+
+# Create results table
+results_tbl <- tibble(
+  Metric = c("RMSE", "MAE", "MSE"),
+  Value = c(rmse, mae, mse)
+)
+
+# Print the table nicely
+kable(results_tbl, digits = 4, caption = "ALS Model Evaluation Metrics")
+
+
+spark_disconnect(sc)
+
+```
+
+# Summary
+
+In our content-based filtering (tags + consine similarity) we are able to measure the similarity between movies based on the genres and tags. Based on the results it shows more than half of the movie pairs have zero similarity. It indicates on average the similarity between movies is relatively low since it is .2161 and 75% of the pairs have similarity less than .4082. Majority of the movie pairs have little or no content similarity between them based on the genre and tags. Only a small number of the movies have some similarity. 
+
+We ran the collaborative filtering with the Alternative Least Squares(ALS) which predicts ratings from user behaviors. The results of RMSE is .8852 and MAE is .6807 which indicated the ratings are about .68 to .88 rating points of the actual user ratings on a scale of 1 to 5. The ALS model is reasonably accurate as the predictions are low but there is room for improvements. 
+
+# Improvements
+
+One of the improvements we can do is blend the predicting ratings from ALS with the content based similarity score to get a balanced recommendations. We could normalize the ratings to improve accuracy to avoid ratings that may be too high or low. Another improvement we can do is change the rank, reg_param, max_iter and test how the values change to see if there are improvements in the RMSE and MAE. 
+
+# Potential Errors
+
+We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine. 
