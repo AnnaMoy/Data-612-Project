@@ -7,8 +7,13 @@ output: html_document
 
 # Project Plan for Final Project
 
+
+#Assignment
+
+Find an interesting dataset and describe the system you plan to build out. If you would like to use one of the datasets you have already worked with, you should add a unique element or incorporate additional data. (i.e. explicit features you scrape from another source, like image analysis on movie posters). The overall goal, however, will be to produce quality recommendations by extracting insights from a large dataset. You may do so using Spark, or another distributed computing method, OR by effectively applying one of the more advanced mathematical techniques we have covered. There is no preference for one over the other, as long as your recommender works!
+
 # Dataset
-The dataset we are using is from Kaggle - [Movielens 100k] (https://www.kaggle.com/datasets/abhikjha/movielens-100k). The data consistent of 100k ratings and 600 users. 
+The dataset we are using is from Kaggle - [Movielens 100k] (https://www.kaggle.com/datasets/abhikjha/movielens-100k). The data contains 100,000 ratings from 600 users on 9,000+ movies, including metadata such as genres and user-generated tags.
 
 * Ratings - userid, movieid, rating, timestamp
 * Movies - movieid, title, genres
@@ -16,4 +21,6 @@ The dataset we are using is from Kaggle - [Movielens 100k] (https://www.kaggle.c
 
 # Recommender Plan
 
-We are going to use a scalable hybrid recommender system for the movie dataset to provide more accuracy and personalization for the movie recommender. Our goal is to use collaborative filtering and then user Alternating Least Squares(ALS) by implementing it in Apache Spark using the sparklyr package in r. As a unique element, we incorporate content-based filtering by combining movie genres and user-generated tags to capture movie similarity, adding richer content features to complement the collaborative filtering model.
+We are going to use a scalable hybrid recommender system for the movie dataset to provide more accuracy and personalization for the movie recommender. Our goal is to use collaborative filtering and then user Alternating Least Squares(ALS) by implementing it in Apache Spark using the sparklyr package in r. As a unique element, we incorporate content-based filtering by combining movie genres and user-generated tags to capture movie similarity, adding richer content features to complement the collaborative filtering model. The system aims to improve recommendation accuracy, personalization, and handle cold-start problems effectively.
+
+Methods:
