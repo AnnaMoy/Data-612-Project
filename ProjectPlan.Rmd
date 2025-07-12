@@ -23,4 +23,7 @@ The dataset we are using is from Kaggle - [Movielens 100k] (https://www.kaggle.c
 
 We are going to use a scalable hybrid recommender system for the movie dataset to provide more accuracy and personalization for the movie recommender. Our goal is to use collaborative filtering and then user Alternating Least Squares(ALS) by implementing it in Apache Spark using the sparklyr package in r. As a unique element, we incorporate content-based filtering by combining movie genres and user-generated tags to capture movie similarity, adding richer content features to complement the collaborative filtering model. The system aims to improve recommendation accuracy, personalization, and handle cold-start problems effectively.
 
-Methods:
+Method:
+Use collaborative filtering with the Alternative Least Squares(ALS) algorithm to build a personalized movie recommendation system based on user ratings.  
+
+Use content based filtering in the model which is used to recommend movies based on their descriptive features such as genres and user-generated tags. 
