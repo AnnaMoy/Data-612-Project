@@ -2,7 +2,7 @@
 title: "Data612_Final_Project"
 author: "Anna Moy & Natalie Kalukeerthie"
 date: "2025-07-05"
-output: html_document
+output: pdf_document
 ---
 
 
@@ -14,6 +14,8 @@ library(tidyr)
 library(stringr)
 library(tidytext)
 library(knitr)
+library(purrr)
+library(tm)
 
 ```
 
@@ -25,9 +27,10 @@ In this project we will be building a hybrid movie recommendation systems using 
 * Movies - movieid, title, genres
 * Tags - userid, movieid, tag, timestamp
 
-The approach we used was collaborative filtering with the Alternative Least Squares(ALS) algorithm to build a personalized movie recommendation system based on user ratings.  
 
-We are incorporating content based filtering in the model which is used to recommend movies based on their descriptive features such as genres and user-generated tags. 
+Our approach combines collaborative filtering with the Alternative Least Squares (ALS) algorithm to personalize recommendations based on user ratings. We also incorporate content-based filtering, which recommends movies using descriptive features like genres and user-generated tags.
+
+Additionally, we evaluate the quality of recommendations using diversity and novelty metrics. Diversity measures how varied the recommended movies are, ensuring users get a broad range of different types of films. Novelty assesses how fresh or surprising the recommendations are, helping balance popular movies with lesser-known options.
 
 
 ```{r}
@@ -152,8 +155,103 @@ results_tbl <- tibble(
   Value = c(rmse, mae, mse)
 )
 
+
 # Print the table nicely
 kable(results_tbl, digits = 4, caption = "ALS Model Evaluation Metrics")
+```
+
+```{r}
+
+# === Step 1: Get ALS model recommendations and collect ===
+top_recs <- ml_recommend(als_model, type = "items") %>%
+  collect()
+
+# === Step 2: Drop conflicting columns before unnesting ===
+top_recs_clean <- top_recs %>%
+  select(-movie_numeric_id)
+
+# === Step 3: Unnest recommendations and rename ===
+top_10_recs <- top_recs_clean %>%
+  mutate(recommendations = map(recommendations, as.data.frame)) %>%
+  unnest(recommendations, names_sep = "_") %>%
+  rename(
+    movie_numeric_id = recommendations_movie_numeric_id,
+    predicted_rating = recommendations_rating
+  )
+
+# === Step 4: Select top 10 recommendations per user ===
+top_10_recs <- top_10_recs %>%
+  group_by(userId) %>%
+  arrange(desc(predicted_rating), .by_group = TRUE) %>%
+  slice_head(n = 10) %>%
+  ungroup()
+
+# === Step 5: Join back original movieId ===
+top_10_recs <- top_10_recs %>%
+  left_join(movie_map, by = "movie_numeric_id")
+
+# === Step 6: Build content similarity matrix for recommended movies ===
+movies_filtered <- movies %>%
+  filter(movieId %in% top_10_recs$movieId)
+
+movie_words <- movies_filtered %>%
+  select(movieId, content) %>%
+  unnest_tokens(word, content)
+
+dtm <- movie_words %>%
+  count(movieId, word) %>%
+  cast_dtm(document = movieId, term = word, value = n)
+
+content_matrix <- as.matrix(dtm)
+
+cosine_sim <- function(x) {
+  sim <- x %*% t(x)
+  norm <- sqrt(rowSums(x * x))
+  sim / (norm %*% t(norm))
+}
+
+content_sim_matrix <- cosine_sim(content_matrix)
+
+# === Step 7: Define diversity calculation function ===
+calculate_diversity <- function(movie_ids, sim_matrix) {
+  movie_ids <- as.character(movie_ids)
+  
+  # Keep only movie_ids present in sim_matrix
+  valid_ids <- movie_ids[movie_ids %in% rownames(sim_matrix)]
+  
+  if (length(valid_ids) <= 1) return(NA)
+  
+  sim_vals <- combn(valid_ids, 2, function(x) sim_matrix[x[1], x[2]], simplify = TRUE)
+  1 - mean(sim_vals, na.rm = TRUE)
+}
+
+# === Step 8: Calculate diversity score per user ===
+diversity_scores <- top_10_recs %>%
+  group_by(userId) %>%
+  summarise(diversity = calculate_diversity(movieId, content_sim_matrix), .groups = "drop")
+
+# === Step 9: Calculate novelty ===
+movie_popularity <- ratings %>%
+  group_by(movieId) %>%
+  summarise(rating_count = n(), .groups = "drop")
+
+top_10_with_pop <- top_10_recs %>%
+  left_join(movie_popularity, by = "movieId")
+
+novelty_scores <- top_10_with_pop %>%
+  group_by(userId) %>%
+  summarise(novelty = mean(1 / (1 + rating_count), na.rm = TRUE), .groups = "drop")
+
+# === Step 10: Combine and summarize ===
+user_metrics <- left_join(diversity_scores, novelty_scores, by = "userId")
+
+summary_tbl <- user_metrics %>%
+  summarise(
+    Avg_Diversity = mean(diversity, na.rm = TRUE),
+    Avg_Novelty = mean(novelty, na.rm = TRUE)
+  )
+
+kable(summary_tbl, digits = 4, caption = "Average Diversity and Novelty Across Users")
 
 
 spark_disconnect(sc)
@@ -166,10 +264,14 @@ In our content-based filtering (tags + consine similarity) we are able to measur
 
 We ran the collaborative filtering with the Alternative Least Squares(ALS) which predicts ratings from user behaviors. The results of RMSE is .8852 and MAE is .6807 which indicated the ratings are about .68 to .88 rating points of the actual user ratings on a scale of 1 to 5. The ALS model is reasonably accurate as the predictions are low but there is room for improvements. 
 
+The novelty lets us know how new or surprising the recomended movies are to the user and with the results it shows the novelty scores is .26 which is a good. It is providing a good balance of movies that are new and old movies to the user. 
+
+The recommender was not able to calculate the diversity score for the users because it did not have enough detail information such as genres and tags to compare how the different recommended movies are. 
+
 # Improvements
 
 One of the improvements we can do is blend the predicting ratings from ALS with the content based similarity score to get a balanced recommendations. We could normalize the ratings to improve accuracy to avoid ratings that may be too high or low. Another improvement we can do is change the rank, reg_param, max_iter and test how the values change to see if there are improvements in the RMSE and MAE. 
 
 # Potential Errors
 
-We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine. 
+We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine and potentially introduce bias in tags. 
