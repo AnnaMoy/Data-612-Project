@@ -5,7 +5,6 @@ date: "2025-07-05"
 output: pdf_document
 ---
 
-
 ```{r}
 #Load library
 library(sparklyr)
@@ -19,19 +18,26 @@ library(tm)
 
 ```
 
-# Introduction 
+# Introduction
 
-In this project we will be building a hybrid movie recommendation systems using the Movielens 100k dataset from [Kaggle - MovieLens 100k] (https://www.kaggle.com/datasets/abhikjha/movielens-100k). Our dataset contains 100k ratings, 3,600 tags, 9k movies and 600 users. 
+In this project we will be building a hybrid movie recommendation systems using the Movielens 100k dataset from [Kaggle - MovieLens 100k] (<https://www.kaggle.com/datasets/abhikjha/movielens-100k>). Our dataset contains 100k ratings, 3,600 tags, 9k movies and 600 users.
 
-* Ratings - userid, movieid, rating, timestamp
-* Movies - movieid, title, genres
-* Tags - userid, movieid, tag, timestamp
-
+-   Ratings - userid, movieid, rating, timestamp
+-   Movies - movieid, title, genres
+-   Tags - userid, movieid, tag, timestamp
 
 Our approach combines collaborative filtering with the Alternative Least Squares (ALS) algorithm to personalize recommendations based on user ratings. We also incorporate content-based filtering, which recommends movies using descriptive features like genres and user-generated tags.
 
 Additionally, we evaluate the quality of recommendations using diversity and novelty metrics. Diversity measures how varied the recommended movies are, ensuring users get a broad range of different types of films. Novelty assesses how fresh or surprising the recommendations are, helping balance popular movies with lesser-known options.
 
+We combined movie genres with user-generated tags to build richer content features for content-based filtering. While genres provide broad categories (e.g., “Action”, “Comedy”), tags offer more nuanced descriptors like "quirky", "mind-bending", or "strong female lead." This hybrid of structured and unstructured features improves similarity comparisons between movies.
+
+To prepare the text for cosine similarity, we:
+
+-   Removed missing values (i.e., movies without tags were assigned empty strings),
+-   Tokenized text into individual words (unigrams),
+-   Constructed a document-term matrix to represent movies in vector space,
+-   Calculated pairwise cosine similarity for movie recommendations and diversity scoring.
 
 ```{r}
 sc <- spark_connect(master = "local")
@@ -158,6 +164,22 @@ results_tbl <- tibble(
 
 # Print the table nicely
 kable(results_tbl, digits = 4, caption = "ALS Model Evaluation Metrics")
+
+```
+
+```{r}
+# Visualize RMSE, MAE, MSE
+library(ggplot2)
+
+ggplot(results_tbl, aes(x = Metric, y = Value, fill = Metric)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = round(Value, 4)), vjust = -0.5) +
+  labs(
+    title = "ALS Model Evaluation Metrics",
+    y = "Value",
+    x = "Metric"
+  ) +
+  theme_minimal()
 ```
 
 ```{r}
@@ -258,20 +280,37 @@ spark_disconnect(sc)
 
 ```
 
+```{r}
+# Sample top 10 recommendations with metadata
+sample_recs <- top_10_recs %>%
+  left_join(movies %>% select(movieId, title, genres), by = "movieId") %>%
+  left_join(movie_popularity, by = "movieId") %>%
+  filter(userId == 1) %>%  # You can change this to any user
+  arrange(desc(predicted_rating))
+
+kable(
+  sample_recs %>% select(title, predicted_rating, genres, rating_count),
+  caption = "Top 10 ALS Recommendations for User 1",
+  digits = 3
+)
+```
+
 # Summary
 
-In our content-based filtering (tags + consine similarity) we are able to measure the similarity between movies based on the genres and tags. Based on the results it shows more than half of the movie pairs have zero similarity. It indicates on average the similarity between movies is relatively low since it is .2161 and 75% of the pairs have similarity less than .4082. Majority of the movie pairs have little or no content similarity between them based on the genre and tags. Only a small number of the movies have some similarity. 
+In our content-based filtering (tags + consine similarity) we are able to measure the similarity between movies based on the genres and tags. Based on the results it shows more than half of the movie pairs have zero similarity. It indicates on average the similarity between movies is relatively low since it is .2161 and 75% of the pairs have similarity less than .4082. Majority of the movie pairs have little or no content similarity between them based on the genre and tags. Only a small number of the movies have some similarity.
 
-We ran the collaborative filtering with the Alternative Least Squares(ALS) which predicts ratings from user behaviors. The results of RMSE is .8852 and MAE is .6807 which indicated the ratings are about .68 to .88 rating points of the actual user ratings on a scale of 1 to 5. The ALS model is reasonably accurate as the predictions are low but there is room for improvements. 
+Training the ALS model on the MovieLens 100k dataset was relatively fast due to its small size, taking under 1 minute using local Spark. However, as dataset size increases (e.g., MovieLens 1M or 20M), runtime and memory consumption will grow significantly. Spark’s distributed computing capabilities make it scalable, especially when deployed on cloud infrastructure like Databricks or Azure HDInsight. The use of Spark was intentional to ensure that the recommender could scale beyond small educational datasets in future applications.
 
-The novelty lets us know how new or surprising the recomended movies are to the user and with the results it shows the novelty scores is .26 which is a good. It is providing a good balance of movies that are new and old movies to the user. 
+We ran the collaborative filtering with the Alternative Least Squares(ALS) which predicts ratings from user behaviors. The results of RMSE is .8852 and MAE is .6807 which indicated the ratings are about .68 to .88 rating points of the actual user ratings on a scale of 1 to 5. The ALS model is reasonably accurate as the predictions are low but there is room for improvements.
 
-The recommender was not able to calculate the diversity score for the users because it did not have enough detail information such as genres and tags to compare how the different recommended movies are. 
+The novelty lets us know how new or surprising the recomended movies are to the user and with the results it shows the novelty scores is .26 which is a good. It is providing a good balance of movies that are new and old movies to the user.
+
+The recommender was not able to calculate the diversity score for the users because it did not have enough detail information such as genres and tags to compare how the different recommended movies are.
 
 # Improvements
 
-One of the improvements we can do is blend the predicting ratings from ALS with the content based similarity score to get a balanced recommendations. We could normalize the ratings to improve accuracy to avoid ratings that may be too high or low. Another improvement we can do is change the rank, reg_param, max_iter and test how the values change to see if there are improvements in the RMSE and MAE. 
+One of the improvements we can do is blend the predicting ratings from ALS with the content based similarity score to get a balanced recommendations. We could normalize the ratings to improve accuracy to avoid ratings that may be too high or low. Another improvement we can do is change the rank, reg_param, max_iter and test how the values change to see if there are improvements in the RMSE and MAE.
 
 # Potential Errors
 
-We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine and potentially introduce bias in tags. 
+We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine and potentially introduce bias in tags.
