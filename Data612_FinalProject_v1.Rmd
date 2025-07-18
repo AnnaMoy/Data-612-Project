@@ -303,14 +303,14 @@ Training the ALS model on the MovieLens 100k dataset was relatively fast due to 
 
 We ran the collaborative filtering with the Alternative Least Squares(ALS) which predicts ratings from user behaviors. The results of RMSE is .8852 and MAE is .6807 which indicated the ratings are about .68 to .88 rating points of the actual user ratings on a scale of 1 to 5. The ALS model is reasonably accurate as the predictions are low but there is room for improvements.
 
-The novelty lets us know how new or surprising the recomended movies are to the user and with the results it shows the novelty scores is .26 which is a good. It is providing a good balance of movies that are new and old movies to the user.
+The novelty lets us know how new or surprising the recommended movies are to the user and with the results it shows the novelty scores is .26 which is a good. It is providing a good balance of movies that are new and old movies to the user.
 
 The recommender was not able to calculate the diversity score for the users because it did not have enough detail information such as genres and tags to compare how the different recommended movies are.
 
 # Improvements
 
-One of the improvements we can do is blend the predicting ratings from ALS with the content based similarity score to get a balanced recommendations. We could normalize the ratings to improve accuracy to avoid ratings that may be too high or low. Another improvement we can do is change the rank, reg_param, max_iter and test how the values change to see if there are improvements in the RMSE and MAE.
+One of the improvements we can do is blend the predicting ratings from ALS with the content based similarity score to get a balanced recommendations. We could normalize the ratings to improve accuracy to avoid ratings that may be too high or low. Another improvement we can do is change the rank, reg_param, max_iter and test how the values change to see if there are improvements in the RMSE and MAE. RMSE and MAE are used to evaluate the prediction accuracy but it does not measure how satisfy the user might be on the recommended movies. 
 
 # Potential Errors
 
-We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine and potentially introduce bias in tags.
+We can have overfitting in our ALS model if the the rank is too high for the data and the regularization parameter is too low. In the movielens dataset there are many missing ratings and tags which causes it to get very few ratings and struggle to get meaningful data. There could potentially be more similarities in movies but with the lack of tags it's hard to determine and potentially introduce bias in tags. One of the challenges we face is a cold start problem when there is a new user or movies that don't have much data which makes it difficult to generate an accurate recommendation. 
